@@ -17,7 +17,10 @@ Two ways to run it:
        python apply_t4.py --base model.safetensors --out t4.safetensors
    data/t4_signs.npz holds the packed sign bits, the zero positions, the
    per-tensor shapes, and the 168 alpha values, derived from the training
-   delta during the program (see derive mode below).
+   delta during the program (see derive mode below). In this repository
+   the file ships split in two, as t4_signs_part1.npz and
+   t4_signs_part2.npz at the repo root; the script finds and merges the
+   parts automatically when the single file is absent.
 
 2. Derive mode, from a merged copy of the Arm T trained model:
        python apply_t4.py --base base.safetensors --trained armt.safetensors \
@@ -46,9 +49,31 @@ from safetensors.torch import load_file, save_file
 TENSORS_HINT = "the 168 LoRA tensors (7 projection types x 24 layers)"
 
 
+def load_signs(path):
+    """Load the shipped sign data as a mapping. Accepts the single
+    t4_signs.npz file; if it is absent, merges t4_signs_part1.npz and
+    t4_signs_part2.npz, looked for next to the given path and in the
+    current directory (the repo root layout)."""
+    import os
+    if os.path.exists(path):
+        return np.load(path)
+    here = os.path.dirname(os.path.abspath(path))
+    for folder in (here, os.path.join(here, ".."), os.getcwd()):
+        p1 = os.path.join(folder, "t4_signs_part1.npz")
+        if os.path.exists(p1):
+            merged = {}
+            for p in (p1, os.path.join(folder, "t4_signs_part2.npz")):
+                z = np.load(p)
+                for k in z.files:
+                    merged[k] = z[k]
+            return merged
+    raise FileNotFoundError(
+        f"no sign file at {path} and no t4_signs_part1.npz found nearby")
+
+
 def signs_from_npz(path):
     """Yield (name, shape, alpha, sign_array_float32) from the shipped file."""
-    z = np.load(path)
+    z = load_signs(path)
     for k in z["tensor_names"].tolist():
         shape = z[f"shape::{k}"].tolist()
         n = int(np.prod(shape))
