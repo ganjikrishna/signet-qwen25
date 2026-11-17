@@ -1,5 +1,18 @@
 # Signet: sign-restricted weight edits on Qwen2.5-0.5B
 
+Signet is an experiment in fixing a language model by editing its weights with plus-or-minus steps only, with no weights learned at edit time.
+A trained fix for Qwen2.5-0.5B's degenerate story endings was converted into a binary edit: 168 tensors, each weight moved by one per-tensor step, and nothing else changed.
+The patch is lossy: it closes 23.2 percent of the gap, and on first-token accuracy it scores 0.010 against the base model's 0.031.
+
+Results at a glance (sealed test, 224 prompts, run once; degeneration rate, lower is better):
+
+| Slice | Base | T4 edit | Change |
+|---|---|---|---|
+| Story prompts (136) | 0.860 | 0.691 | 16.9 points better |
+| All items (224) | 0.652 | 0.500 | 15.2 points better |
+| Factual prompts (56) | 0.196 | 0.036 | 16.1 points better |
+| Held-out story family (24) | 0.875 | 0.833 | 4.2 points better, not significant |
+
 Signet tests a simple question: can a language model's flaw be corrected by editing its weights with plus-or-minus steps only? Each changed weight moves by one fixed step size per tensor, in the direction a trained fix moved it, and by nothing else. No new weights are learned at edit time. The program ran on the Qwen2.5-0.5B base model under rules frozen in advance (what counts as the flaw, how edits are proposed, which controls every round must carry, and when an edit is kept or reverted). The final edit, called T4, was built entirely on a small development set and then scored once on a sealed test of 224 fresh prompts that no part of the loop had seen. This repo holds the method, the edit, the test items, and the full record, including every round that failed.
 
 Author: Vinay K Ganji Krishna
@@ -68,6 +81,16 @@ Every round carried the same controls, and they behaved as they should, with one
 - One model, one size, one flaw: Qwen2.5-0.5B base and its instruct twin, story degeneration only. Nothing here shows the method transfers to other models, sizes, or flaw types.
 - Sign transfer is lossy and variable: about 44% of the trained ceiling's gain for the first delta, about 10% for the retraining delta in T7. The binary claim is about storage and simplicity, not superiority; per byte, the factored construction transferred behavior better in the bake-off.
 - All numbers come from one pipeline on one machine, greedy decoding, float32. Determinism checks passed throughout (zero edits, seal hash, weight hashes), but no independent replication exists yet. That is what the reproduction steps below are for.
+
+## Runtime and requirements
+
+Verified on a fresh clone on 2026-11-17, on Python 3.12.3:
+
+- Python 3.12 (any recent Python 3 with wheels for the packages below should work; 3.12.3 is the verified one).
+- For apply_t4.py: numpy, torch, safetensors. Verified versions: numpy 2.5.5, torch 2.15.0 (CPU build is enough), safetensors 0.8.0. A requirements.txt with these pins is in the repo root: `pip install -r requirements.txt`.
+- For evaluate.py: the same, plus transformers.
+- Base weights are not in this repo and the scripts download nothing: get the official Qwen2.5-0.5B checkpoint from Qwen/Qwen2.5-0.5B on Hugging Face. The verified base file is model.safetensors, 988,097,824 bytes, sha256 88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342.
+- Verified run: `python apply_t4.py --base model.safetensors --out t4.safetensors` finished in about 47 seconds on CPU, printed "edited 168 tensors", and wrote a 1,976,163,472 byte file. The output is float32, so it is about twice the size of the base file. An independent check of the output found all 290 tensors present, exactly 168 changed and 122 identical to the base, matching the counts in this README.
 
 ## How to reproduce
 

@@ -1,0 +1,6 @@
+# Verified on Python 3.12.3, fresh clone, 2026-11-17.
+# Enough for apply_t4.py. The CPU build of torch is sufficient.
+numpy==2.5.5
+torch==2.15.0
+safetensors==0.8.0
+# evaluate.py also needs: transformers
