@@ -2,7 +2,7 @@
 
 Author: Vinay K Ganji Krishna
 Written with Muse Spark (Ember)
-Draft, Tue 2026-11-17. Not yet published.
+Published Tue 2026-11-17.
 
 On Nov 2, 2026, four researchers at MIT CSAIL published something that deserves more attention than it got. They handed a frontier AI model, GPT-6 Astra, the raw weights of a small open model, Qwen3.5-0.8B, and let it edit those weights directly, the way a programmer edits code. No retraining. No gradients. The small model had a defect: it thought in loops and ran into its token limit on 93% of answers. Astra traced the looping to one harmful direction written into the MLPs of layers 15 and 19, and subtracted that direction from 64 output columns in each, 128 columns in all, and the model started finishing its answers. On MATH-500, scored with a budget of 50 forward passes per problem, it went from 7.9% to 48.1%. The whole edit touched 131,072 weights, 0.016% of the model.
 
